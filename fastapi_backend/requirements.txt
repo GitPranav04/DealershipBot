@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+transformers
+torch
+torchvision
+torchaudio
+pydantic
+sentencepiece
+sqlalchemy
+pyodbc
+python-dotenv
+datasets
+pandas
+accelerate
