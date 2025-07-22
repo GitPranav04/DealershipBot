@@ -23,22 +23,32 @@ model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_PATH)
 class QueryRequest(BaseModel):
     question: str
 
-# Database connection
-#server = 'your_server'
-#database = 'your_database'
-#username = 'your_username'
-#password = 'your_password'
-#connection_string = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
+import pyodbc
 
-# Create a connection
-#conn = pyodbc.connect(connection_string)
+# Database connection strings
+DMSConnection = "Driver={ODBC Driver 17 for SQL Server};Server=10.42.57.36; Initial Catalog=OnlineDMS_Staging; User Id=dmsuser; Password=Dms2023#; Pooling=True;Max Pool Size=2500;Connect Timeout=200;Application Name=PerformTest"
+DMSConnReport = "Driver={ODBC Driver 17 for SQL Server};Server=10.42.57.36; Initial Catalog=OnlineDMS_Staging; User Id=dmsuser; Password=Dms2023#; ApplicationIntent=ReadOnly;MultiSubnetFailover=True; Pooling=True;Max Pool Size=2500;Connect Timeout=200;"
+
+# Create a connection using DMSConnection
+conn = pyodbc.connect(DMSConnection)
 
 # Create a cursor
-#cursor = conn.cursor()
+cursor = conn.cursor()
 
 @app.post("/chat")
 async def chat(request: QueryRequest):
     inputs = tokenizer(request.question, return_tensors="pt", truncation=True, padding=True)
     outputs = model.generate(**inputs, max_length=256)
     sql = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    return {"sql": sql, "response": sql, "type": "sql"}
+
+    # Execute the generated SQL query
+    try:
+        cursor.execute(sql)
+        columns = [column[0] for column in cursor.description]
+        results = cursor.fetchall()
+        data = [dict(zip(columns, row)) for row in results]
+        response = {"sql": sql, "response": data, "type": "data"}
+    except Exception as e:
+        response = {"sql": sql, "response": str(e), "type": "error"}
+
+    return response
